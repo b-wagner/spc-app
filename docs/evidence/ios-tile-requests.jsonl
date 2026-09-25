@@ -1,0 +1,7 @@
+Synthetic tile diagnostics listening on 127.0.0.1:8123
+{"at":"2026-09-25T02:56:52.000Z","path":"/fresh/8/56/100.png","userAgent":"SPCOutlookPrototype/0.1.0","ifNoneMatch":null,"status":200,"maxAge":3600}
+{"at":"2026-09-25T02:56:52.012Z","path":"/fresh/8/57/100.png","userAgent":"SPCOutlookPrototype/0.1.0","ifNoneMatch":null,"status":200,"maxAge":3600}
+{"at":"2026-09-25T02:56:52.013Z","path":"/fresh/8/55/100.png","userAgent":"SPCOutlookPrototype/0.1.0","ifNoneMatch":null,"status":200,"maxAge":3600}
+{"at":"2026-09-25T12:21:24.755Z","path":"/fresh/8/57/100.png","userAgent":"SPCOutlookPrototype/0.1.0","ifNoneMatch":"\"spc-synthetic-tile-v1\"","status":304,"maxAge":3600}
+{"at":"2026-09-25T12:21:24.757Z","path":"/fresh/8/55/100.png","userAgent":"SPCOutlookPrototype/0.1.0","ifNoneMatch":"\"spc-synthetic-tile-v1\"","status":304,"maxAge":3600}
+{"at":"2026-09-25T12:21:24.758Z","path":"/fresh/8/56/100.png","userAgent":"SPCOutlookPrototype/0.1.0","ifNoneMatch":"\"spc-synthetic-tile-v1\"","status":304,"maxAge":3600}

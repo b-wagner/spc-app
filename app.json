@@ -1,0 +1,55 @@
+{
+  "expo": {
+    "name": "SPC Outlook",
+    "slug": "spc-outlook",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "spcoutlook",
+    "userInterfaceStyle": "light",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "dev.spcoutlook.prototype"
+    },
+    "android": {
+      "package": "dev.spcoutlook.prototype",
+      "blockedPermissions": [
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "@maplibre/maplibre-react-native",
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow SPC Outlook to show your location on the outlook map. Your location stays on this device.",
+          "isIosBackgroundLocationEnabled": false,
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false,
+          "locationAlwaysPermission": false,
+          "locationAlwaysAndWhenInUsePermission": false,
+          "motionUsagePermission": false
+        }
+      ],
+      "./plugins/with-scene-lifecycle",
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "useHermesV1": false,
+          "buildReactNativeFromSource": true
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "icon": "./assets/icon.png"
+  }
+}
