@@ -15,6 +15,7 @@ import { formatTime } from "@/utils/format";
 import { ExternalLink } from "@/components/ExternalLink";
 import { RiskBadge } from "@/components/RiskBadge";
 import { StatusBanner } from "@/components/StatusBanner";
+import { ForecastDiscussion } from "@/components/ForecastDiscussion";
 import { styles } from "@/theme/tokens";
 export default function Details() {
   const params = useLocalSearchParams<{ day?: string }>(),
@@ -59,6 +60,7 @@ export default function Details() {
           </View>
         ))}
       </View>
+      <ForecastDiscussion key={day} day={day} />
       <View style={styles.card}>
         <Text style={styles.body}>
           Cache status:{" "}

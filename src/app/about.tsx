@@ -21,7 +21,7 @@ export default function About() {
       <View style={styles.card}>
         <Text style={styles.title}>SPC Outlook</Text>
         <Text style={styles.secondary}>
-          Version 0.1.0{__DEV__ ? " · Development build" : ""}
+          Version 0.2.0{__DEV__ ? " · Development build" : ""}
         </Text>
         <Text style={styles.body}>
           Independent viewer of NOAA/NWS Storm Prediction Center outlooks. Not
@@ -40,7 +40,9 @@ export default function About() {
         <Text style={styles.secondary}>
           Map tile requests reveal the area being viewed. Selected coordinates
           and place names are not sent to NOAA; point inspection happens on this
-          device. No accounts, analytics, or background location tracking.
+          device. Search terms are sent to OpenStreetMap&apos;s Nominatim service
+          only when you submit a search. No accounts, analytics, or background
+          location tracking.
         </Text>
       </View>
       <View style={styles.card}>
@@ -53,7 +55,8 @@ export default function About() {
         <Text style={styles.secondary}>
           The background map has a separate native tile cache. Areas you have
           not viewed may be missing offline. Clearing forecasts preserves saved
-          places and map tiles.
+          places and map tiles. Forecast Discussions are loaded on demand from
+          the official SPC plain-text products.
         </Text>
         <ExternalLink
           label="NOAA/NWS Storm Prediction Center"

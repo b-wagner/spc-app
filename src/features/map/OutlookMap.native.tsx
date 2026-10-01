@@ -11,7 +11,12 @@ import type { OutlookSnapshot } from "@/features/outlooks/types";
 import { usePlaces } from "@/features/places/PlacesProvider";
 import { basemapStyle, BASEMAP_PROVIDER } from "./basemap";
 import { registerMapHeaders } from "./requestHeaders";
-import { NATIONAL_BOUNDS, MAP_PADDING } from "./camera";
+import {
+  MAP_PADDING,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  NATIONAL_BOUNDS,
+} from "./camera";
 import { OutlookLayers } from "./layers";
 import { SelectedPoint } from "./SelectedPoint";
 import { StatusBanner } from "@/components/StatusBanner";
@@ -96,8 +101,9 @@ export default function OutlookMap({
               ? { center: [...initialCamera.center], zoom: initialCamera.zoom }
               : { bounds: NATIONAL_BOUNDS, padding: MAP_PADDING }
           }
-          minZoom={2}
-          maxZoom={10}
+          minZoom={MIN_ZOOM}
+          maxZoom={MAX_ZOOM}
+          maxBounds={NATIONAL_BOUNDS}
           bearing={0}
           pitch={0}
         />

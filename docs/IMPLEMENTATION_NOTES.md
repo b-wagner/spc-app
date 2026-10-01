@@ -39,3 +39,17 @@ Read-only inspection of MapLibre's native SQLite cache also found the synthetic 
 ## Remaining validation scope
 
 See `VALIDATION.md`. Android build/run, physical hardware, full screen-reader navigation, small-phone coverage, same-issuance official graphical comparison and end-to-end airplane-mode checks require follow-up. These are not counted as passed tests. Public feed contents and tile availability change independently of app code.
+
+## September 30 v0.1 feedback implementation
+
+The Map screen now gives the native map all remaining route space and overlays a 132-point collapsed sheet. The expanded sheet is capped at 70% of ordinary screens or 82% with larger text, scrolls independently, and accounts for safe-area insets. Its collapsed state retains point/risk context and a 48-point Locate Me action. Search, US view, legend, refresh, detailed validity, save/edit, and navigation to details live in the expanded state.
+
+MapLibre React Native 11.4.0 exposes `Camera.maxBounds`; the app uses it with lower-48 bounds `[-125, 24, -66, 50]`, minimum zoom 2, and maximum zoom 12. Restored camera preferences are clamped through the same constants. `maxBounds` constrains the camera center, so at national zoom a small amount outside the bounding box can remain visible at the screen edges; this is native documented behavior and preferable to gesture-time snapback.
+
+Location search uses public Nominatim only after explicit submission. The request includes `countrycodes=us`, a bounded lower-48 viewbox, a five-result cap, and the app User-Agent; returned coordinates are validated against the same bounds. Public requests are limited to one per second and cached in memory for 24 hours. No API key, account, new package, or environment variable is required. Search text is disclosed to Nominatim and the UI includes OpenStreetMap attribution.
+
+Forecast Discussions use SPC's official `day1otlk.txt`, `day2otlk.txt`, and `day3otlk.txt` products. The client accepts plain text only, enforces a 512 KiB response ceiling and 15-second timeout, verifies the requested day title, and renders selectable text. It does not inject HTML or WebView content.
+
+The live ArcGIS service metadata and captured GeoJSON were re-inspected for requested risk-impact fields. Categorical layers expose `objectid`, `dn`, timing/provenance/style fields, geometry, and database `st_area(shape)` / `st_perimeter(shape)`. They expose no population or population-center values, and the layer uses geographic spatial reference 4269, so the area field has no documented square-mile meaning. The SPC presentation website displays separate impact tables, but no supported API contract for those tables was found. The app does not scrape that markup, calculate a substitute population, or label coordinate-system area as square miles; unavailable impact fields remain omitted.
+
+App-icon review found only a flattened 1024×1024 PNG and no source/generator/adaptive-icon workflow. The existing icon remains in place. Three implementation-ready, non-official concepts and the recommendation are in `ICON_CONCEPTS.md`.

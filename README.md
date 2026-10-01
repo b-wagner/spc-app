@@ -1,6 +1,6 @@
 # SPC Outlook
 
-A native iOS/Android prototype for NOAA/NWS Storm Prediction Center Day 1–3 categorical outlooks. Browse polygons, inspect a point, optionally locate yourself, and save up to 20 places locally. The app distinguishes forecast validity, last successful check, upcoming periods, expired data, and unavailable data. It provides no emergency warnings or notifications.
+A native iOS/Android prototype for NOAA/NWS Storm Prediction Center Day 1–3 categorical outlooks. Browse polygons, inspect a point, search for a contiguous-U.S. city/place or ZIP code, optionally locate yourself, read the official Forecast Discussion, and save up to 20 places locally. The app distinguishes forecast validity, last successful check, upcoming periods, expired data, and unavailable data. It provides no emergency warnings or notifications.
 
 ## Project structure
 
@@ -33,14 +33,18 @@ Use the development client to open the Metro URL. After changing the Hermes conf
 
 The app requests the full national GeoJSON layer from [NOAA's SPC outlook service](https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer): layers **1, 9, 17** for Days 1, 2, 3, with `where=1=1`, explicit fields, `returnGeometry=true`, `outSR=4326`, `f=geojson`. Point lookup is on-device; saved names and selected coordinates are not sent to NOAA.
 
-The basemap uses `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, with visible **© OpenStreetMap contributors** attribution and application User-Agent `SPCOutlookPrototype/0.1.0`. Native tile caching respects response freshness and validators. Prefetch is disabled; no bulk download or offline-region feature exists. Follow the [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/). Tile requests disclose the viewed area and ordinary network metadata to the provider.
+The map camera is constrained to the contiguous United States with native MapLibre bounds and zoom levels 2–12. Explicit location searches use the public [Nominatim service](https://nominatim.org/release-docs/latest/api/Search/) with a U.S. country filter and lower-48 bounding box. Search is submit-only (not autocomplete), limited to five results, rate-limited to one public request per second, cached in memory for 24 hours, and visibly attributed to OpenStreetMap. No API key is required. Search terms and ordinary network metadata are sent to Nominatim; saved names are not. The Forecast Discussion screen retrieves SPC's official plain-text `day1otlk.txt`, `day2otlk.txt`, or `day3otlk.txt` product on demand and renders no provider markup.
+
+The categorical ArcGIS layer does **not** publish population, larger population centers, or a documented square-mile value. Its geometry area field is tied to a geographic coordinate system and is not contracted as square miles. The SPC website's presentation pages display impact tables, but they are not part of the documented data API and are not scraped here. Those values are therefore omitted rather than estimated or mislabeled.
+
+The basemap uses `https://tile.openstreetmap.org/{z}/{x}/{y}.png`, with visible **© OpenStreetMap contributors** attribution and application User-Agent `SPCOutlookPrototype/0.2.0`. Native tile caching respects response freshness and validators. Prefetch is disabled; no bulk download or offline-region feature exists. Follow the [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/). Tile requests disclose the viewed area and ordinary network metadata to the provider.
 
 Weather snapshots and places use SQLite. Cached weather can remain available offline, but never guarantees that map tiles are available. Expired data cannot produce a current point assessment. Clearing the weather cache preserves saved places and the separate native basemap cache. There is no background tracking, account sync, analytics, paid API, radar, warning feed, or push notification service.
 
 ## Tests and historical fixtures
 
 ```sh
-npm run check       # TypeScript, lint, 66 domain/storage/network/UI tests
+npm run check       # TypeScript, lint, 76 domain/storage/network/UI tests
 npm run test:ci
 npx expo-doctor
 EXPO_PUBLIC_DATA_MODE=fixtures npm start

@@ -7,8 +7,8 @@ import { formatCoordinates, formatTime } from "@/utils/format";
 import { styles } from "@/theme/tokens";
 import { AppButton } from "./AppButton";
 import { RiskBadge } from "./RiskBadge";
-/** Fixed summary occupies layout space below the map; it never covers map attribution. */
-export function ForecastSummary() {
+/** Selected-point summary used in the collapsible map sheet and details panel. */
+export function ForecastSummary({ compact = false }: { compact?: boolean }) {
   const { selection, places } = usePlaces(),
     { day, states, now } = useOutlook();
   const snapshot = states[day].snapshot;
@@ -16,6 +16,21 @@ export function ForecastSummary() {
   const assessment = selection
     ? assessPoint(snapshot, selection.coordinates, now)
     : null;
+  if (compact)
+    return (
+      <View style={{ gap: 4, flex: 1 }}>
+        <Text numberOfLines={1} style={styles.body}>
+          {selection
+            ? place?.name ?? selection.label ?? "Selected point"
+            : "Tap the map to inspect a place"}
+        </Text>
+        {selection ? (
+          <RiskBadge assessment={assessment!} compact />
+        ) : (
+          <Text style={styles.secondary}>Pull up for search and details</Text>
+        )}
+      </View>
+    );
   return (
     <View style={styles.card}>
       {selection ? (
@@ -23,7 +38,7 @@ export function ForecastSummary() {
           <View style={[styles.row, { justifyContent: "space-between" }]}>
             <View style={{ flex: 1 }}>
               <Text selectable style={styles.body}>
-                {place?.name ?? "Selected point"}
+                {place?.name ?? selection.label ?? "Selected point"}
               </Text>
               <Text selectable style={styles.secondary}>
                 {formatCoordinates(selection.coordinates)}

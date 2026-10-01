@@ -11,6 +11,8 @@ export interface SavedPlace {
 export interface Selection {
   coordinates: LonLat;
   savedPlaceId: string | null;
-  origin: "map" | "place" | "device";
+  origin: "map" | "place" | "device" | "search";
+  /** Provider display label for an unsaved search result. */
+  label?: string;
   approximate?: boolean;
 }
