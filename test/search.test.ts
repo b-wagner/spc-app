@@ -1,5 +1,8 @@
 import {
+  MAX_RESULT_LABEL_LENGTH,
+  MAX_SEARCH_RESULTS,
   normalizeSearchQuery,
+  resolveGeocoderUrl,
   searchPlaces,
   type SearchTransport,
 } from "@/features/search/client";
@@ -25,6 +28,21 @@ test("search validates input before requesting", async () => {
   expect(() => normalizeSearchQuery("A")).toThrow("INVALID_SEARCH");
   expect(() => normalizeSearchQuery("1234")).toThrow("INVALID_SEARCH");
   expect(normalizeSearchQuery("  Norman,   OK ")).toBe("Norman, OK");
+});
+
+test("release geocoding requires a configurable non-public endpoint", () => {
+  expect(() => resolveGeocoderUrl(undefined, false)).toThrow(
+    "SEARCH_NOT_CONFIGURED",
+  );
+  expect(() =>
+    resolveGeocoderUrl("https://nominatim.openstreetmap.org/search", false),
+  ).toThrow("SEARCH_NOT_CONFIGURED");
+  expect(resolveGeocoderUrl("https://geocoder.example.test/search", false)).toBe(
+    "https://geocoder.example.test/search",
+  );
+  expect(resolveGeocoderUrl(undefined, true)).toBe(
+    "https://nominatim.openstreetmap.org/search",
+  );
 });
 
 test("search constrains request and results to the contiguous United States", async () => {
@@ -55,6 +73,45 @@ test("search distinguishes no results and service failures", async () => {
   await expect(
     searchPlaces("Norman", new AbortController().signal, response(503, [])),
   ).rejects.toThrow("SEARCH_SERVICE_ERROR");
+});
+
+test("search locally caps, deduplicates, and sanitizes provider results", async () => {
+  const raw = [
+    { place_id: "duplicate", display_name: "First", lon: "-97", lat: "35" },
+    { place_id: "duplicate", display_name: "Duplicate", lon: "-98", lat: "36" },
+    {
+      place_id: "long",
+      display_name: "x".repeat(MAX_RESULT_LABEL_LENGTH + 1),
+      lon: "-97",
+      lat: "35",
+    },
+    { place_id: "bidi", display_name: "Norman\u202e", lon: "-97", lat: "35" },
+    ...Array.from({ length: 10 }, (_, index) => ({
+      place_id: index,
+      display_name: `Place ${index}`,
+      lon: String(-100 + index / 10),
+      lat: "35",
+    })),
+  ];
+  const results = await searchPlaces(
+    "places",
+    new AbortController().signal,
+    response(200, raw),
+  );
+  expect(results).toHaveLength(MAX_SEARCH_RESULTS);
+  expect(results.filter((result) => result.id === "duplicate")).toHaveLength(1);
+  expect(results.some((result) => result.id === "long")).toBe(false);
+  expect(results.some((result) => result.id === "bidi")).toBe(false);
+});
+
+test("already-canceled search never contacts the provider", async () => {
+  const controller = new AbortController();
+  const transport = jest.fn(response(200, []));
+  controller.abort();
+  await expect(searchPlaces("Norman", controller.signal, transport)).rejects.toThrow(
+    "CANCELED",
+  );
+  expect(transport).not.toHaveBeenCalled();
 });
 
 test("camera constraints clamp restored coordinates and zoom", () => {

@@ -4,7 +4,11 @@ import {
 } from "@/features/outlooks/normalize";
 import { parseSpcUtc } from "@/features/outlooks/timestamps";
 import { getPointCategory } from "@/features/outlooks/pointRisk";
-import { assessPoint, temporalState } from "@/features/outlooks/validity";
+import {
+  assessPoint,
+  statusMessage,
+  temporalState,
+} from "@/features/outlooks/validity";
 import { acceptResponse } from "@/features/outlooks/repository";
 import { formatTime } from "@/utils/format";
 import { FIXTURE_TIME } from "@/utils/clock";
@@ -89,6 +93,27 @@ test("empty response cannot assert an all-clear", () => {
   expect(s.kind).toBe("empty-unverified");
   expect(s.validFrom).toBeNull();
   expect(assessPoint(s, [-99, 38], FIXTURE_TIME).state).toBe("unavailable");
+});
+test("refresh failures remain visible for expired and empty snapshots", () => {
+  const expired = normalize(allCategories);
+  const empty = normalize(collection());
+  const request = {
+    network: "error" as const,
+    error: "TIMEOUT",
+    lastAttempt: FIXTURE_TIME,
+    retryAt: FIXTURE_TIME + 60000,
+    failures: 1,
+  };
+  expect(
+    statusMessage(
+      { ...request, snapshot: expired },
+      1,
+      expired.expiresAt!,
+    ),
+  ).toBe("Couldn't update. The saved outlook has expired.");
+  expect(statusMessage({ ...request, snapshot: empty }, 1, FIXTURE_TIME)).toBe(
+    "Couldn't update. The last check returned no verifiable outlook geometry.",
+  );
 });
 test.each([
   { error: { code: 500 } },

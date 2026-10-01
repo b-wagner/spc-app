@@ -60,7 +60,19 @@ export default function Details() {
           </View>
         ))}
       </View>
-      <ForecastDiscussion key={day} day={day} />
+      <ForecastDiscussion
+        key={`${day}-${s?.issuedAt ?? "unavailable"}`}
+        day={day}
+        expected={
+          s?.kind === "forecast"
+            ? {
+                issuedAt: s.issuedAt!,
+                validFrom: s.validFrom!,
+                expiresAt: s.expiresAt!,
+              }
+            : null
+        }
+      />
       <View style={styles.card}>
         <Text style={styles.body}>
           Cache status:{" "}

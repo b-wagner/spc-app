@@ -9,7 +9,7 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import type { OutlookSnapshot } from "@/features/outlooks/types";
 import { usePlaces } from "@/features/places/PlacesProvider";
-import { basemapStyle, BASEMAP_PROVIDER } from "./basemap";
+import { basemapStyle } from "./basemap";
 import { registerMapHeaders } from "./requestHeaders";
 import {
   MAP_PADDING,
@@ -20,7 +20,6 @@ import {
 import { OutlookLayers } from "./layers";
 import { SelectedPoint } from "./SelectedPoint";
 import { StatusBanner } from "@/components/StatusBanner";
-import { ExternalLink } from "@/components/ExternalLink";
 registerMapHeaders();
 /** One press handler; geometry hit-testing is deliberately outside the renderer. */
 export default function OutlookMap({
@@ -110,12 +109,6 @@ export default function OutlookMap({
         <OutlookLayers snapshot={snapshot} expired={expired} />
         {selection && <SelectedPoint coordinates={selection.coordinates} />}
       </Map>
-      <View style={{ backgroundColor: "#FFFFFF" }}>
-        <ExternalLink
-          label={BASEMAP_PROVIDER.attribution}
-          url={BASEMAP_PROVIDER.attributionUrl}
-        />
-      </View>
       <StatusBanner
         message={failed ? "Background map may be incomplete." : null}
       />

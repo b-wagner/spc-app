@@ -40,9 +40,9 @@ export default function About() {
         <Text style={styles.secondary}>
           Map tile requests reveal the area being viewed. Selected coordinates
           and place names are not sent to NOAA; point inspection happens on this
-          device. Search terms are sent to OpenStreetMap&apos;s Nominatim service
-          only when you submit a search. No accounts, analytics, or background
-          location tracking.
+          device. Search terms are sent to the configured OpenStreetMap search
+          provider only when you submit a search. No accounts, analytics, or
+          background location tracking.
         </Text>
       </View>
       <View style={styles.card}>
@@ -56,7 +56,8 @@ export default function About() {
           The background map has a separate native tile cache. Areas you have
           not viewed may be missing offline. Clearing forecasts preserves saved
           places and map tiles. Forecast Discussions are loaded on demand from
-          the official SPC plain-text products.
+          the official SPC plain-text products and shown only when their issue
+          and validity times match the displayed outlook.
         </Text>
         <ExternalLink
           label="NOAA/NWS Storm Prediction Center"

@@ -1,6 +1,9 @@
 import { render, waitFor } from "@testing-library/react-native";
 import { TextEncoder } from "node:util";
-import { ForecastDiscussion } from "@/components/ForecastDiscussion";
+import {
+  canLoadForecastDiscussion,
+  ForecastDiscussion,
+} from "@/components/ForecastDiscussion";
 import {
   fetchForecastDiscussion,
   parseForecastDiscussion,
@@ -8,6 +11,12 @@ import {
 } from "@/features/discussion/client";
 
 Object.assign(globalThis, { TextEncoder });
+
+const expected = {
+  issuedAt: Date.UTC(2026, 8, 30, 12, 57),
+  validFrom: Date.UTC(2026, 8, 30, 13),
+  expiresAt: Date.UTC(2026, 9, 1, 12),
+};
 
 const product = `ZCZC SPCSWODY1 ALL
 ACUS01 KWNS 301257
@@ -58,6 +67,24 @@ test("discussion parser rejects markup and the wrong day", () => {
   );
 });
 
+test("discussion must match the displayed outlook product", () => {
+  expect(parseForecastDiscussion(product, 1, expected).validLabel).toContain(
+    "301300Z",
+  );
+  expect(() =>
+    parseForecastDiscussion(product, 1, {
+      ...expected,
+      validFrom: Date.UTC(2026, 8, 29, 13),
+    }),
+  ).toThrow("DISCUSSION_MISMATCH");
+});
+
+test("historical demo mode cannot request a live discussion", () => {
+  expect(canLoadForecastDiscussion(expected, true)).toBe(false);
+  expect(canLoadForecastDiscussion(expected, false)).toBe(true);
+  expect(canLoadForecastDiscussion(null, false)).toBe(false);
+});
+
 test("discussion client distinguishes unavailable and service errors", async () => {
   await expect(
     fetchForecastDiscussion(1, new AbortController().signal, response(404, "")),
@@ -67,8 +94,14 @@ test("discussion client distinguishes unavailable and service errors", async () 
   ).rejects.toThrow("DISCUSSION_SERVICE_ERROR");
 });
 
-test("discussion component renders loading then safe text", async () => {
-  const view = render(<ForecastDiscussion day={1} transport={response(200, product)} />);
+test("discussion component renders loading then matching safe text", async () => {
+  const view = render(
+    <ForecastDiscussion
+      day={1}
+      expected={expected}
+      transport={response(200, product)}
+    />,
+  );
   expect(view.getByText("Loading discussion…")).toBeTruthy();
   await waitFor(() => expect(view.getByText("Day 1 Convective Outlook")).toBeTruthy());
   expect(view.getByText(/Storm development is expected/)).toBeTruthy();
@@ -76,16 +109,37 @@ test("discussion component renders loading then safe text", async () => {
 
 test("discussion component renders unavailable and error states", async () => {
   const unavailable = render(
-    <ForecastDiscussion day={1} transport={response(404, "")} />,
+    <ForecastDiscussion
+      day={1}
+      expected={expected}
+      transport={response(404, "")}
+    />,
   );
   await waitFor(() =>
-    expect(unavailable.getByText(/not available for this day/)).toBeTruthy(),
+    expect(unavailable.getByText(/matching Forecast Discussion/)).toBeTruthy(),
   );
   const error = render(
-    <ForecastDiscussion day={1} transport={response(500, "")} />,
+    <ForecastDiscussion
+      day={1}
+      expected={expected}
+      transport={response(500, "")}
+    />,
   );
   await waitFor(() =>
     expect(error.getByText(/could not be loaded/)).toBeTruthy(),
   );
   expect(error.getByRole("button", { name: "Retry discussion" })).toBeTruthy();
+});
+
+test("discussion component reports a mismatched live product", async () => {
+  const view = render(
+    <ForecastDiscussion
+      day={1}
+      expected={{ ...expected, expiresAt: Date.UTC(2026, 9, 2, 12) }}
+      transport={response(200, product)}
+    />,
+  );
+  await waitFor(() =>
+    expect(view.getByText(/does not match this saved outlook/)).toBeTruthy(),
+  );
 });

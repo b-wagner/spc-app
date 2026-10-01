@@ -1,10 +1,12 @@
 import {
   fetchOutlook,
   httpMetadata,
+  MAX_RETRY_AFTER_MS,
   retryAfter,
   type HttpTransport,
 } from "@/features/outlooks/client";
 import { FIXTURE_TIME } from "@/utils/clock";
+import { readBoundedText } from "@/utils/http";
 const clock = { now: () => FIXTURE_TIME };
 const headers = (v: Record<string, string>) => new Headers(v);
 test("max-age accounts for Date and Age; no-cache and no-store differ", () => {
@@ -42,6 +44,17 @@ test("Retry-After supports seconds and dates", () => {
   ).toBe(FIXTURE_TIME + 60000);
   expect(retryAfter("invalid", FIXTURE_TIME)).toBe(0);
 });
+test("Retry-After cannot disable requests indefinitely", () => {
+  expect(retryAfter("999999999999999999999", FIXTURE_TIME)).toBe(
+    FIXTURE_TIME + MAX_RETRY_AFTER_MS,
+  );
+  expect(
+    retryAfter(new Date(FIXTURE_TIME + 86400000).toUTCString(), FIXTURE_TIME),
+  ).toBe(FIXTURE_TIME + MAX_RETRY_AFTER_MS);
+  expect(retryAfter(new Date(FIXTURE_TIME - 60000).toUTCString(), FIXTURE_TIME)).toBe(
+    FIXTURE_TIME,
+  );
+});
 function response(
   status: number,
   text: string,
@@ -77,6 +90,18 @@ test("content length budget is checked before reading body", async () => {
       new AbortController().signal,
       clock,
       response(200, "{}", { "content-length": String(11 * 1024 * 1024) }),
+    ),
+  ).rejects.toThrow("RESPONSE_TOO_LARGE");
+});
+test("body budget is enforced when content length is absent", async () => {
+  await expect(
+    readBoundedText(
+      {
+        headers: new Headers(),
+        text: async () => "12345",
+      } as Response,
+      4,
+      "RESPONSE_TOO_LARGE",
     ),
   ).rejects.toThrow("RESPONSE_TOO_LARGE");
 });

@@ -33,7 +33,9 @@ Use the development client to open the Metro URL. After changing the Hermes conf
 
 The app requests the full national GeoJSON layer from [NOAA's SPC outlook service](https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer): layers **1, 9, 17** for Days 1, 2, 3, with `where=1=1`, explicit fields, `returnGeometry=true`, `outSR=4326`, `f=geojson`. Point lookup is on-device; saved names and selected coordinates are not sent to NOAA.
 
-The map camera is constrained to the contiguous United States with native MapLibre bounds and zoom levels 2–12. Explicit location searches use the public [Nominatim service](https://nominatim.org/release-docs/latest/api/Search/) with a U.S. country filter and lower-48 bounding box. Search is submit-only (not autocomplete), limited to five results, rate-limited to one public request per second, cached in memory for 24 hours, and visibly attributed to OpenStreetMap. No API key is required. Search terms and ordinary network metadata are sent to Nominatim; saved names are not. The Forecast Discussion screen retrieves SPC's official plain-text `day1otlk.txt`, `day2otlk.txt`, or `day3otlk.txt` product on demand and renders no provider markup.
+The map camera is constrained to the contiguous United States with native MapLibre bounds and zoom levels 2–12. Explicit location search is submit-only (not autocomplete), limited to five locally validated results, cached in memory for 24 hours, and visibly attributed to OpenStreetMap. Local development defaults to the public [Nominatim service](https://nominatim.org/release-docs/latest/api/Search/) and applies its per-process one-request-per-second limit. Release builds deliberately disable that distributed-client default: configure `EXPO_PUBLIC_GEOCODER_URL` with an HTTPS, Nominatim-compatible proxy or provider that owns aggregate throttling, shared caching, and upstream switching. A release build rejects the public Nominatim hostname. Search terms and ordinary network metadata are disclosed to the configured search service; saved names are not.
+
+The Forecast Discussion screen retrieves SPC's official plain-text `day1otlk.txt`, `day2otlk.txt`, or `day3otlk.txt` product on demand. It displays text only when the UTC issuance and validity tuple matches the map's normalized outlook snapshot. Historical fixture mode makes no live discussion request.
 
 The categorical ArcGIS layer does **not** publish population, larger population centers, or a documented square-mile value. Its geometry area field is tied to a geographic coordinate system and is not contracted as square miles. The SPC website's presentation pages display impact tables, but they are not part of the documented data API and are not scraped here. Those values are therefore omitted rather than estimated or mislabeled.
 
@@ -44,13 +46,13 @@ Weather snapshots and places use SQLite. Cached weather can remain available off
 ## Tests and historical fixtures
 
 ```sh
-npm run check       # TypeScript, lint, 76 domain/storage/network/UI tests
+npm run check       # TypeScript, lint, 85 domain/storage/network/UI tests
 npm run test:ci
 npx expo-doctor
 EXPO_PUBLIC_DATA_MODE=fixtures npm start
 ```
 
-Fixture mode uses captured September 24, 2026 NOAA responses and a fixed reference clock of **2026-09-24 18:00 UTC**. Every screen identifies demo data as **NOT CURRENT WEATHER**. It uses an in-memory weather repository and a blank basemap by default. A live failure never switches to fixtures. Stop Metro and remove the environment variable to return to live mode; no env file is required.
+Fixture mode uses captured September 24, 2026 NOAA responses and a fixed reference clock of **2026-09-24 18:00 UTC**. Every screen identifies demo data as **NOT CURRENT WEATHER**. It uses an in-memory weather repository, a blank basemap by default, and disables live Forecast Discussion retrieval. A live failure never switches to fixtures. Stop Metro and remove the environment variable to return to live mode; no env file is required.
 
 `node scripts/check-outlook-feeds.mjs` checks the three live layer schemas. `node scripts/capture-outlook-fixtures.mjs` deliberately makes three national requests and replaces fixture files and their manifest. Run sparingly, inspect every captured response, and adjust fixture expectations/reference time intentionally; do not run as a polling job.
 

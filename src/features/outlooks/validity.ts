@@ -42,13 +42,18 @@ export function statusMessage(
 ): string | null {
   const s = state.snapshot;
   if (s && now < s.checkedAt - 300000) return "Device time may be incorrect.";
-  if (s?.kind === "empty-unverified")
-    return "No outlook geometry returned. Forecast availability could not be confirmed.";
-  if (temporalState(s, now) === "expired") return "This outlook has expired.";
-  if (state.network === "error")
+  if (state.network === "error") {
+    if (s?.kind === "empty-unverified")
+      return "Couldn't update. The last check returned no verifiable outlook geometry.";
+    if (temporalState(s, now) === "expired")
+      return "Couldn't update. The saved outlook has expired.";
     return s
       ? "Couldn't update. Showing saved outlook."
       : "Outlook unavailable. Try again or open SPC.";
+  }
+  if (s?.kind === "empty-unverified")
+    return "No outlook geometry returned. Forecast availability could not be confirmed.";
+  if (temporalState(s, now) === "expired") return "This outlook has expired.";
   if (!s)
     return state.network === "loading"
       ? `Loading Day ${day} outlook…`

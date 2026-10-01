@@ -1,5 +1,6 @@
 import type { OutlookDay } from "@/features/outlooks/types";
 import { AppError } from "@/utils/errors";
+import { readBoundedText } from "@/utils/http";
 
 export interface ForecastDiscussion {
   day: OutlookDay;
@@ -15,14 +16,54 @@ export type DiscussionTransport = (
   init: RequestInit,
 ) => Promise<Response>;
 
+export interface ExpectedDiscussionProduct {
+  issuedAt: number;
+  validFrom: number;
+  expiresAt: number;
+}
+
 export function discussionUrl(day: OutlookDay) {
   return `https://www.spc.noaa.gov/products/outlook/day${day}otlk.txt`;
+}
+
+function matchesUtcParts(epoch: number, day: number, hour: number, minute: number) {
+  const date = new Date(epoch);
+  return (
+    date.getUTCDate() === day &&
+    date.getUTCHours() === hour &&
+    date.getUTCMinutes() === minute
+  );
+}
+
+/** The text product omits month/year in its UTC headers, so compare its UTC tuple to the cached product. */
+export function discussionMatchesProduct(
+  lines: string[],
+  validLabel: string | null,
+  expected: ExpectedDiscussionProduct,
+) {
+  const issue = lines
+    .map((line) => line.trim())
+    .map((line) => /^ACUS\d+\s+KWNS\s+(\d{2})(\d{2})(\d{2})\b/i.exec(line))
+    .find(Boolean);
+  const valid = validLabel
+    ? /^Valid\s+(\d{2})(\d{2})(\d{2})Z\s*-\s*(\d{2})(\d{2})(\d{2})Z\s*$/i.exec(
+        validLabel,
+      )
+    : null;
+  return Boolean(
+    issue &&
+      valid &&
+      matchesUtcParts(expected.issuedAt, +issue[1], +issue[2], +issue[3]) &&
+      matchesUtcParts(expected.validFrom, +valid[1], +valid[2], +valid[3]) &&
+      matchesUtcParts(expected.expiresAt, +valid[4], +valid[5], +valid[6]),
+  );
 }
 
 /** Parses SPC's plain-text outlook product and never accepts markup as prose. */
 export function parseForecastDiscussion(
   raw: string,
   day: OutlookDay,
+  expected?: ExpectedDiscussionProduct,
 ): ForecastDiscussion {
   if (!raw.trim() || /<\s*(?:html|script|body)\b/i.test(raw))
     throw new AppError("DISCUSSION_UNAVAILABLE");
@@ -49,6 +90,8 @@ export function parseForecastDiscussion(
         ),
       ) ?? null;
   const validLabel = validIndex >= 0 ? lines[validIndex].trim() : null;
+  if (expected && !discussionMatchesProduct(lines, validLabel, expected))
+    throw new AppError("DISCUSSION_MISMATCH");
   const contentStart = validIndex >= 0 ? validIndex + 1 : titleIndex + 1;
   const text = lines
     .slice(contentStart, endIndex > contentStart ? endIndex : undefined)
@@ -71,6 +114,7 @@ export async function fetchForecastDiscussion(
   day: OutlookDay,
   signal: AbortSignal,
   transport: DiscussionTransport = fetch,
+  expected?: ExpectedDiscussionProduct,
 ) {
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -92,16 +136,15 @@ export async function fetchForecastDiscussion(
     if (response.status === 404 || response.status === 204)
       throw new AppError("DISCUSSION_UNAVAILABLE");
     if (!response.ok) throw new AppError("DISCUSSION_SERVICE_ERROR");
-    const length = Number(response.headers.get("content-length"));
-    if (Number.isFinite(length) && length > 512 * 1024)
-      throw new AppError("DISCUSSION_SERVICE_ERROR");
-    const text = await response.text();
-    if (text.length > 512 * 1024)
-      throw new AppError("DISCUSSION_SERVICE_ERROR");
-    return parseForecastDiscussion(text, day);
+    const text = await readBoundedText(
+      response,
+      512 * 1024,
+      "DISCUSSION_SERVICE_ERROR",
+    );
+    return parseForecastDiscussion(text, day, expected);
   } catch (error) {
-    if (error instanceof AppError) throw error;
     if (signal.aborted) throw new AppError("CANCELED");
+    if (error instanceof AppError) throw error;
     throw new AppError(
       timedOut ? "DISCUSSION_TIMEOUT" : "DISCUSSION_SERVICE_ERROR",
     );

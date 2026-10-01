@@ -1,9 +1,13 @@
 import { AppError } from "@/utils/errors";
 import type { LonLat } from "@/features/outlooks/types";
 import { isInsideNationalBounds } from "@/features/map/camera";
+import { readBoundedText } from "@/utils/http";
 
 export const GEOCODER_URL = "https://nominatim.openstreetmap.org/search";
 export const SEARCH_TIMEOUT_MS = 10000;
+export const MAX_SEARCH_RESULTS = 5;
+export const MAX_SEARCH_CACHE_ENTRIES = 100;
+export const MAX_RESULT_LABEL_LENGTH = 300;
 export type SearchTransport = (
   url: string,
   init: RequestInit,
@@ -21,7 +25,52 @@ const resultCache = new Map<
 >();
 let lastPublicRequestAt = 0;
 
+/**
+ * Public Nominatim is available only for local development. Release builds
+ * must use a configured, Nominatim-compatible proxy/provider whose aggregate
+ * quota and upstream selection are controlled outside the installed app.
+ */
+export function resolveGeocoderUrl(
+  configuredValue: string | undefined,
+  development: boolean,
+) {
+  const configured = configuredValue?.trim();
+  if (!configured) {
+    if (development) return GEOCODER_URL;
+    throw new AppError("SEARCH_NOT_CONFIGURED");
+  }
+  let url: URL;
+  try {
+    url = new URL(configured);
+  } catch {
+    throw new AppError("SEARCH_NOT_CONFIGURED");
+  }
+  if (url.protocol !== "https:" || url.username || url.password)
+    throw new AppError("SEARCH_NOT_CONFIGURED");
+  if (!development && url.hostname === "nominatim.openstreetmap.org")
+    throw new AppError("SEARCH_NOT_CONFIGURED");
+  return url.toString();
+}
+
+export function geocoderUrl() {
+  return resolveGeocoderUrl(process.env.EXPO_PUBLIC_GEOCODER_URL, __DEV__);
+}
+
+function cacheResult(
+  key: string,
+  value: { expiresAt: number; results: SearchResult[] },
+) {
+  const now = Date.now();
+  for (const [cachedKey, cached] of resultCache)
+    if (cached.expiresAt <= now) resultCache.delete(cachedKey);
+  resultCache.delete(key);
+  resultCache.set(key, value);
+  while (resultCache.size > MAX_SEARCH_CACHE_ENTRIES)
+    resultCache.delete(resultCache.keys().next().value!);
+}
+
 async function respectPublicRateLimit(signal: AbortSignal) {
+  if (signal.aborted) throw new AppError("CANCELED");
   const delay = Math.max(0, 1000 - (Date.now() - lastPublicRequestAt));
   if (!delay) return;
   await new Promise<void>((resolve, reject) => {
@@ -36,6 +85,7 @@ async function respectPublicRateLimit(signal: AbortSignal) {
     };
     signal.addEventListener("abort", cancel, { once: true });
   });
+  if (signal.aborted) throw new AppError("CANCELED");
 }
 
 /** Validates explicit, submit-only place searches before contacting a service. */
@@ -52,7 +102,7 @@ export function normalizeSearchQuery(value: string) {
 }
 
 /**
- * Searches the public Nominatim endpoint for a city/place or ZIP code.
+ * Searches the configured Nominatim-compatible endpoint for a city/place or ZIP code.
  *
  * Results are bounded and revalidated locally because the map deliberately
  * covers only the contiguous United States. Requests occur only on submit;
@@ -64,9 +114,12 @@ export async function searchPlaces(
   transport: SearchTransport = fetch,
 ): Promise<SearchResult[]> {
   const query = normalizeSearchQuery(value);
-  const publicService = transport === fetch;
-  const cacheKey = query.toLocaleLowerCase("en-US");
-  const cached = publicService ? resultCache.get(cacheKey) : undefined;
+  const liveTransport = transport === fetch;
+  const endpoint = liveTransport ? geocoderUrl() : GEOCODER_URL;
+  const publicService =
+    liveTransport && new URL(endpoint).hostname === "nominatim.openstreetmap.org";
+  const cacheKey = `${endpoint}\u0000${query.toLocaleLowerCase("en-US")}`;
+  const cached = liveTransport ? resultCache.get(cacheKey) : undefined;
   if (cached && cached.expiresAt > Date.now()) return cached.results;
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -78,6 +131,7 @@ export async function searchPlaces(
     controller.abort();
   }, SEARCH_TIMEOUT_MS);
   try {
+    if (controller.signal.aborted) throw new AppError("CANCELED");
     if (publicService) {
       await respectPublicRateLimit(controller.signal);
       lastPublicRequestAt = Date.now();
@@ -91,7 +145,8 @@ export async function searchPlaces(
       viewbox: "-125,50,-66,24",
       addressdetails: "0",
     });
-    const response = await transport(`${GEOCODER_URL}?${params}`, {
+    const separator = endpoint.includes("?") ? "&" : "?";
+    const response = await transport(`${endpoint}${separator}${params}`, {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
@@ -99,8 +154,11 @@ export async function searchPlaces(
       },
     });
     if (!response.ok) throw new AppError("SEARCH_SERVICE_ERROR");
-    const text = await response.text();
-    if (text.length > 1024 * 1024) throw new AppError("SEARCH_SERVICE_ERROR");
+    const text = await readBoundedText(
+      response,
+      1024 * 1024,
+      "SEARCH_SERVICE_ERROR",
+    );
     let raw: unknown;
     try {
       raw = JSON.parse(text);
@@ -109,6 +167,7 @@ export async function searchPlaces(
     }
     if (!Array.isArray(raw)) throw new AppError("SEARCH_SERVICE_ERROR");
     const results: SearchResult[] = [];
+    const seen = new Set<string>();
     for (const item of raw) {
       if (!item || typeof item !== "object") continue;
       const value = item as Record<string, unknown>;
@@ -116,31 +175,38 @@ export async function searchPlaces(
         latitude = Number(value.lat);
       if (
         typeof value.display_name !== "string" ||
+        value.display_name.length > MAX_RESULT_LABEL_LENGTH ||
+        /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/i.test(
+          value.display_name,
+        ) ||
         !Number.isFinite(longitude) ||
         !Number.isFinite(latitude)
       )
         continue;
       const coordinates: LonLat = [longitude, latitude];
       if (!isInsideNationalBounds(coordinates)) continue;
+      const id =
+        typeof value.place_id === "number" || typeof value.place_id === "string"
+          ? String(value.place_id)
+          : `${longitude},${latitude}`;
+      if (seen.has(id)) continue;
+      seen.add(id);
       results.push({
-        id:
-          typeof value.place_id === "number" ||
-          typeof value.place_id === "string"
-            ? String(value.place_id)
-            : `${longitude},${latitude}`,
+        id,
         label: value.display_name,
         coordinates,
       });
+      if (results.length === MAX_SEARCH_RESULTS) break;
     }
-    if (publicService)
-      resultCache.set(cacheKey, {
+    if (liveTransport)
+      cacheResult(cacheKey, {
         expiresAt: Date.now() + 24 * 60 * 60 * 1000,
         results,
       });
     return results;
   } catch (error) {
-    if (error instanceof AppError) throw error;
     if (signal.aborted) throw new AppError("CANCELED");
+    if (error instanceof AppError) throw error;
     throw new AppError(timedOut ? "SEARCH_TIMEOUT" : "SEARCH_SERVICE_ERROR");
   } finally {
     clearTimeout(timeout);

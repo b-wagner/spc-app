@@ -24,7 +24,13 @@ export function LocationSearch({
     "idle" | "loading" | "no-results" | "invalid" | "error"
   >("idle");
   const request = useRef<AbortController | null>(null);
-  useEffect(() => () => request.current?.abort(), []);
+  useEffect(
+    () => () => {
+      request.current?.abort();
+      request.current = null;
+    },
+    [],
+  );
 
   const submit = async () => {
     request.current?.abort();
@@ -40,6 +46,8 @@ export function LocationSearch({
     } catch (error) {
       if (request.current !== controller || errorCode(error) === "CANCELED") return;
       setState(errorCode(error) === "INVALID_SEARCH" ? "invalid" : "error");
+    } finally {
+      if (request.current === controller) request.current = null;
     }
   };
 
