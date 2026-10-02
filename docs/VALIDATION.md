@@ -1,5 +1,14 @@
 # Validation report
 
+## September 30 v0.1 feedback checks
+
+- `npm run check`: passed with TypeScript, Expo lint, **8 suites / 85 tests** after the code-review hardening pass.
+- `npx expo export --platform ios --platform android`: passed after the hardening changes; this validates production JavaScript/Hermes bundles, not native runtime behavior.
+- `npx expo-doctor`: **21/22 checks passed**. The registry currently recommends patch updates from Expo 56.0.22 to 56.0.23 and `expo-constants` 56.0.26 to 56.0.27. They were not changed as part of this scoped feedback work; the app bundles and checks pass on the repository's locked versions.
+- New automated coverage validates lower-48 camera clamping; bounded, unique and sanitized search results; release geocoder configuration; canceled search; invalid search, no-results, selection and service errors; official plain-text discussion parsing and product matching; markup/day/issuance mismatch rejection; combined expired/empty refresh failures; bounded `Retry-After`; response byte ceilings; and discussion loading, unavailable, mismatch, error, retry and ready states.
+- Live official responses were inspected on September 30, 2026. `day1otlk.txt`, `day2otlk.txt`, and `day3otlk.txt` returned day-specific plain-text products with issuance/validity metadata and narrative sections. NOAA ArcGIS layer metadata and captured app fixtures confirmed no population or population-center fields and no documented square-mile field.
+- Native visual/gesture validation of the reserved attribution row, new sheet, keyboard, map bounds, location search, and long discussion remains follow-up work on supported devices.
+
 Tested September 24–25, 2026 against the uncommitted implementation working tree. No commit or publication was made. Native testing used an iPhone 18 Pro simulator, iOS 27.0, Xcode 27.0 (27A266a), macOS, Node 22.23.3, npm 10.9.9, CocoaPods 1.17.0 and Ruby 3.4.5.
 
 ## Automated checks

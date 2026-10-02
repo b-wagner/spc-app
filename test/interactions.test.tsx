@@ -2,6 +2,7 @@ import { render, fireEvent, waitFor } from "@testing-library/react-native";
 import { ForecastDaySelector } from "@/components/ForecastDaySelector";
 import { ForecastSummary } from "@/components/ForecastSummary";
 import { RiskBadge } from "@/components/RiskBadge";
+import { LocationSearch } from "@/components/LocationSearch";
 import PlaceEditor from "@/app/place-edit";
 import { useOutlook } from "@/features/outlooks/useOutlook";
 import { usePlaces } from "@/features/places/PlacesProvider";
@@ -76,6 +77,62 @@ test("selected map point has textual category and a save action", () => {
   expect(view.getByText("High risk · Level 5 of 5")).toBeTruthy();
   fireEvent.press(view.getByRole("button", { name: "Save place" }));
   expect(router.push).toHaveBeenCalledWith("/place-edit");
+});
+test("location search exposes validation, no-results, and selection behavior", async () => {
+  const places = placesValue();
+  jest.mocked(usePlaces).mockReturnValue(places);
+  const transport = jest.fn(async () =>
+    ({
+      ok: true,
+      status: 200,
+      text: async () => "[]",
+    }) as Response,
+  );
+  const view = render(<LocationSearch transport={transport} />);
+  fireEvent.press(view.getByRole("button", { name: "Search" }));
+  await waitFor(() =>
+    expect(view.getByText(/Enter at least two characters/)).toBeTruthy(),
+  );
+  expect(transport).not.toHaveBeenCalled();
+
+  fireEvent.changeText(
+    view.getByLabelText("U.S. city, place, or ZIP code"),
+    "Norman",
+  );
+  fireEvent.press(view.getByRole("button", { name: "Search" }));
+  await waitFor(() =>
+    expect(view.getByText(/No locations found/)).toBeTruthy(),
+  );
+
+  transport.mockImplementationOnce(async () =>
+    ({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify([
+          {
+            place_id: 1,
+            display_name: "Norman, Cleveland County, Oklahoma, United States",
+            lon: "-97.44",
+            lat: "35.22",
+          },
+        ]),
+    }) as Response,
+  );
+  fireEvent.press(view.getByRole("button", { name: "Search" }));
+  await waitFor(() =>
+    expect(
+      view.getByRole("button", { name: /Show Norman/ }),
+    ).toBeTruthy(),
+  );
+  fireEvent.press(view.getByRole("button", { name: /Show Norman/ }));
+  expect(places.select).toHaveBeenCalledWith(
+    expect.objectContaining({
+      coordinates: [-97.44, 35.22],
+      origin: "search",
+    }),
+    true,
+  );
 });
 test("expired point suppresses a current category", () => {
   const view = render(

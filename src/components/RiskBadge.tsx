@@ -5,8 +5,10 @@ import { styles } from "@/theme/tokens";
 /** Text always carries the result; expired/missing data cannot render a current colored badge. */
 export function RiskBadge({
   assessment,
+  compact = false,
 }: {
   assessment: ReturnType<typeof assessPoint>;
+  compact?: boolean;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
@@ -23,7 +25,11 @@ export function RiskBadge({
           }}
         />
       )}
-      <Text selectable style={[styles.risk, { flex: 1 }]}>
+      <Text
+        numberOfLines={compact ? 1 : undefined}
+        selectable
+        style={[compact ? styles.body : styles.risk, { flex: 1 }]}
+      >
         {assessment.label}
       </Text>
     </View>

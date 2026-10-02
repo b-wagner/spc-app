@@ -1,6 +1,7 @@
 /** Weather HTTP transport only. Native map traffic has a separate header/cache path. */
 import { AppError } from "@/utils/errors";
 import type { Clock } from "@/utils/clock";
+import { readBoundedText } from "@/utils/http";
 import { queryUrl, USER_AGENT } from "./sourceConfig";
 import type { OutlookDay, OutlookSnapshot } from "./types";
 export type HttpTransport = (
@@ -17,12 +18,19 @@ export type FetchResult =
   | { kind: "not-modified"; meta: HttpMetadata }
   | { kind: "body"; raw: unknown; meta: HttpMetadata };
 export const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+export const MAX_RETRY_AFTER_MS = 60 * 60 * 1000;
 /** Retry-After may be delta seconds or an HTTP date; malformed values are ignored. */
 export function retryAfter(value: string | null, now: number) {
   if (!value) return 0;
-  if (/^\d+$/.test(value.trim())) return now + Number(value) * 1000;
+  if (/^\d+$/.test(value.trim())) {
+    const seconds = Number(value);
+    if (!Number.isSafeInteger(seconds)) return now + MAX_RETRY_AFTER_MS;
+    return now + Math.min(seconds * 1000, MAX_RETRY_AFTER_MS);
+  }
   const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? Math.max(now, parsed) : 0;
+  return Number.isFinite(parsed)
+    ? Math.min(now + MAX_RETRY_AFTER_MS, Math.max(now, parsed))
+    : 0;
 }
 /** Derives freshness from origin age, not receipt time alone. no-store also clears validators. */
 export function httpMetadata(headers: Headers, now: number): HttpMetadata {
@@ -102,14 +110,14 @@ export async function fetchOutlook(
           ? retryAfter(response.headers.get("retry-after"), clock.now())
           : 0,
       );
-    if (Number(response.headers.get("content-length")) > MAX_RESPONSE_BYTES)
-      throw new AppError("RESPONSE_TOO_LARGE");
     const type = response.headers.get("content-type");
     if (type && !/(?:json|geo\+json)/i.test(type))
       throw new AppError("INVALID_JSON");
-    const text = await response.text();
-    if (new TextEncoder().encode(text).length > MAX_RESPONSE_BYTES)
-      throw new AppError("RESPONSE_TOO_LARGE");
+    const text = await readBoundedText(
+      response,
+      MAX_RESPONSE_BYTES,
+      "RESPONSE_TOO_LARGE",
+    );
     let raw: unknown;
     try {
       raw = JSON.parse(text);

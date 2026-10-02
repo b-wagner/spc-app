@@ -1,5 +1,5 @@
 import type { OutlookDay } from "./types";
-export const USER_AGENT = "SPCOutlookPrototype/0.1.0";
+export const USER_AGENT = "SPCOutlookPrototype/0.2.0";
 export const SERVICE_URL =
   "https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer";
 export const LAYERS = { 1: 1, 2: 9, 3: 17 } as const;

@@ -1,12 +1,5 @@
-import { useEffect, useState } from "react";
-import {
-  Linking,
-  ScrollView,
-  Text,
-  View,
-  useWindowDimensions,
-} from "react-native";
-import { router } from "expo-router";
+import { useEffect, useRef, useState } from "react";
+import { Linking, View } from "react-native";
 import OutlookMap from "@/features/map/OutlookMap";
 import { useOutlook } from "@/features/outlooks/useOutlook";
 import { usePlaces } from "@/features/places/PlacesProvider";
@@ -15,50 +8,66 @@ import { temporalState, statusMessage } from "@/features/outlooks/validity";
 import { LocationDeniedError } from "@/features/location/locateOnce";
 import { errorCode } from "@/utils/errors";
 import { fixtureMode } from "@/utils/clock";
-import { checkedLabel } from "@/utils/format";
-import { AppButton } from "@/components/AppButton";
 import { StatusBanner } from "@/components/StatusBanner";
 import { ForecastDaySelector } from "@/components/ForecastDaySelector";
-import { ForecastSummary } from "@/components/ForecastSummary";
 import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
+import { OutlookBottomSheet } from "@/components/OutlookBottomSheet";
 import { styles } from "@/theme/tokens";
+import { isInsideNationalBounds } from "@/features/map/camera";
+import { BASEMAP_PROVIDER } from "@/features/map/basemap";
+import { ExternalLink } from "@/components/ExternalLink";
+
 export default function MapScreen() {
-  const { day, states, now, refresh, deadline } = useOutlook(),
-    { select, usView, locator } = usePlaces(),
-    { storageNotice } = useStorage();
-  const [locating, setLocating] = useState(false),
-    [locationMessage, setLocationMessage] = useState<string | null>(null),
-    [openSettings, setOpenSettings] = useState(false);
-  const { height, fontScale } = useWindowDimensions();
-  const state = states[day],
-    pending = ["loading", "refreshing"].includes(state.network);
-  useEffect(() => () => locator.cancel(), [locator]);
+  const { day, states, now } = useOutlook();
+  const { select, usView, locator } = usePlaces();
+  const { storageNotice } = useStorage();
+  const [locating, setLocating] = useState(false);
+  const [locationMessage, setLocationMessage] = useState<string | null>(null);
+  const [openSettings, setOpenSettings] = useState(false);
+  const locateOperation = useRef(0);
+  const state = states[day];
+
+  useEffect(
+    () => () => {
+      locateOperation.current++;
+      locator.cancel();
+    },
+    [locator],
+  );
   const locate = async () => {
+    const operation = ++locateOperation.current;
     setLocating(true);
     setLocationMessage(null);
     setOpenSettings(false);
     try {
       const result = await locator.locate();
-      select({ ...result, savedPlaceId: null, origin: "device" }, true);
-    } catch (e) {
-      if (e instanceof LocationDeniedError) {
+      if (operation !== locateOperation.current) return;
+      if (!isInsideNationalBounds(result.coordinates)) {
         setLocationMessage(
-          "Location access is off. You can still tap the map.",
+          "Your current location is outside this map’s contiguous U.S. coverage.",
         );
-        setOpenSettings(!e.canAskAgain);
-      } else if (errorCode(e) !== "CANCELED")
-        setLocationMessage("Location unavailable. You can still tap the map.");
+        return;
+      }
+      select({ ...result, savedPlaceId: null, origin: "device" }, true);
+    } catch (error) {
+      if (operation !== locateOperation.current) return;
+      if (error instanceof LocationDeniedError) {
+        setLocationMessage(
+          "Location access is off. Search for a place or tap the map instead.",
+        );
+        setOpenSettings(!error.canAskAgain);
+      } else if (errorCode(error) !== "CANCELED") {
+        setLocationMessage(
+          "Location is unavailable. Search for a place or tap the map instead.",
+        );
+      }
     } finally {
-      setLocating(false);
+      if (operation === locateOperation.current) setLocating(false);
     }
   };
-  const large = fontScale > 1.3 || height < 700;
+
   return (
-    <ScrollView
-      style={styles.screen}
-      contentContainerStyle={{ flexGrow: 1 }}
-      scrollEnabled={large}
-    >
+    <View style={styles.screen}>
       <StatusBanner
         message={fixtureMode ? "DEMO DATA — NOT CURRENT WEATHER" : null}
       />
@@ -70,68 +79,36 @@ export default function MapScreen() {
         }
       />
       <ForecastDaySelector />
-      <View
-        style={[
-          styles.row,
-          {
-            paddingHorizontal: 12,
-            justifyContent: "space-between",
-            backgroundColor: "white",
-          },
-        ]}
-      >
-        <Text selectable style={styles.secondary}>
-          {checkedLabel(state.snapshot?.checkedAt, now)}
-        </Text>
-        <AppButton
-          label="Refresh"
-          onPress={refresh}
-          pending={pending}
-          disabled={now < deadline}
-        />
-      </View>
-      {now < deadline && !pending && (
-        <Text style={[styles.secondary, { paddingHorizontal: 16 }]}>
-          Try again in {Math.max(1, Math.ceil((deadline - now) / 60000))} min
-        </Text>
-      )}
       <StatusBanner message={statusMessage(state, day, now)} />
-      <View style={large ? { height: 300 } : { flex: 1, minHeight: 200 }}>
-        <ScreenErrorBoundary map>
-          <OutlookMap
-            snapshot={state.snapshot}
-            expired={temporalState(state.snapshot, now) === "expired"}
+      <View style={{ flex: 1, minHeight: 240 }}>
+        <View style={{ backgroundColor: "#FFFFFF" }}>
+          <ExternalLink
+            label={BASEMAP_PROVIDER.attribution}
+            url={BASEMAP_PROVIDER.attributionUrl}
           />
-        </ScreenErrorBoundary>
+        </View>
+        <View style={{ flex: 1 }}>
+          <ScreenErrorBoundary map>
+            <OutlookMap
+              snapshot={state.snapshot}
+              expired={temporalState(state.snapshot, now) === "expired"}
+            />
+          </ScreenErrorBoundary>
+          <OutlookBottomSheet
+            locating={locating}
+            locationMessage={locationMessage}
+            openSettings={openSettings}
+            onLocate={() => void locate()}
+            onDismissLocation={() => setLocationMessage(null)}
+            onOpenSettings={() =>
+              void Linking.openSettings().catch(() =>
+                setLocationMessage("Unable to open device settings."),
+              )
+            }
+            onUsView={usView}
+          />
+        </View>
       </View>
-      <View
-        style={[
-          styles.row,
-          { justifyContent: "space-around", backgroundColor: "white" },
-        ]}
-      >
-        <AppButton
-          label="Locate me"
-          pending={locating}
-          onPress={() => void locate()}
-        />
-        <AppButton label="US view" onPress={usView} />
-        <AppButton label="Legend" onPress={() => router.push("/legend")} />
-      </View>
-      <StatusBanner message={locationMessage} />
-      {openSettings && (
-        <AppButton
-          label="Open settings"
-          onPress={() =>
-            void Linking.openSettings().catch(() =>
-              setLocationMessage("Unable to open device settings."),
-            )
-          }
-        />
-      )}
-      <View style={{ padding: 12 }}>
-        <ForecastSummary />
-      </View>
-    </ScrollView>
+    </View>
   );
 }

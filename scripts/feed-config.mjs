@@ -7,7 +7,7 @@ export function url(day) {
 export async function get(url) {
   const r = await fetch(url, {
     headers: {
-      "User-Agent": "SPCOutlookPrototype/0.1.0",
+      "User-Agent": "SPCOutlookPrototype/0.2.0",
       Accept: "application/geo+json, application/json",
     },
     signal: AbortSignal.timeout(15000),

@@ -9,13 +9,17 @@ import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
 import type { OutlookSnapshot } from "@/features/outlooks/types";
 import { usePlaces } from "@/features/places/PlacesProvider";
-import { basemapStyle, BASEMAP_PROVIDER } from "./basemap";
+import { basemapStyle } from "./basemap";
 import { registerMapHeaders } from "./requestHeaders";
-import { NATIONAL_BOUNDS, MAP_PADDING } from "./camera";
+import {
+  MAP_PADDING,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  NATIONAL_BOUNDS,
+} from "./camera";
 import { OutlookLayers } from "./layers";
 import { SelectedPoint } from "./SelectedPoint";
 import { StatusBanner } from "@/components/StatusBanner";
-import { ExternalLink } from "@/components/ExternalLink";
 registerMapHeaders();
 /** One press handler; geometry hit-testing is deliberately outside the renderer. */
 export default function OutlookMap({
@@ -96,20 +100,15 @@ export default function OutlookMap({
               ? { center: [...initialCamera.center], zoom: initialCamera.zoom }
               : { bounds: NATIONAL_BOUNDS, padding: MAP_PADDING }
           }
-          minZoom={2}
-          maxZoom={10}
+          minZoom={MIN_ZOOM}
+          maxZoom={MAX_ZOOM}
+          maxBounds={NATIONAL_BOUNDS}
           bearing={0}
           pitch={0}
         />
         <OutlookLayers snapshot={snapshot} expired={expired} />
         {selection && <SelectedPoint coordinates={selection.coordinates} />}
       </Map>
-      <View style={{ backgroundColor: "#FFFFFF" }}>
-        <ExternalLink
-          label={BASEMAP_PROVIDER.attribution}
-          url={BASEMAP_PROVIDER.attributionUrl}
-        />
-      </View>
       <StatusBanner
         message={failed ? "Background map may be incomplete." : null}
       />

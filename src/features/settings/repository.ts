@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from "expo-sqlite";
 import type { LonLat } from "@/features/outlooks/types";
 import { isRecord, validCoordinates } from "@/features/outlooks/normalize";
+import { constrainCamera } from "@/features/map/camera";
 export interface SavedCamera {
   center: LonLat;
   zoom: number;
@@ -25,10 +26,10 @@ export function settingsRepository(db: SQLiteDatabase | null) {
             typeof value.zoom === "number" &&
             Number.isFinite(value.zoom)
           )
-            camera = {
-              center: [value.center[0], value.center[1]],
-              zoom: Math.max(2, Math.min(10, value.zoom)),
-            };
+            camera = constrainCamera(
+              [value.center[0], value.center[1]],
+              value.zoom,
+            );
           if (row.key === "selectedPlaceId" && typeof value === "string")
             selectedPlaceId = value;
         } catch {

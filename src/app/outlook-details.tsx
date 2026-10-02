@@ -15,6 +15,7 @@ import { formatTime } from "@/utils/format";
 import { ExternalLink } from "@/components/ExternalLink";
 import { RiskBadge } from "@/components/RiskBadge";
 import { StatusBanner } from "@/components/StatusBanner";
+import { ForecastDiscussion } from "@/components/ForecastDiscussion";
 import { styles } from "@/theme/tokens";
 export default function Details() {
   const params = useLocalSearchParams<{ day?: string }>(),
@@ -59,6 +60,19 @@ export default function Details() {
           </View>
         ))}
       </View>
+      <ForecastDiscussion
+        key={`${day}-${s?.issuedAt ?? "unavailable"}`}
+        day={day}
+        expected={
+          s?.kind === "forecast"
+            ? {
+                issuedAt: s.issuedAt!,
+                validFrom: s.validFrom!,
+                expiresAt: s.expiresAt!,
+              }
+            : null
+        }
+      />
       <View style={styles.card}>
         <Text style={styles.body}>
           Cache status:{" "}

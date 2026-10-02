@@ -154,6 +154,7 @@ A selected point is not automatically a saved place. The user must choose Save p
 | `src/utils/format.ts` | Format dates, coordinates, and last-checked labels for display. |
 | `src/utils/clock.ts` | Supply the current time or the fixed historical demo clock. |
 | `src/utils/errors.ts` | Represent operational errors with codes the interface can translate. |
+| `src/utils/http.ts` | Read untrusted HTTP bodies with provider-specific byte ceilings and streaming cancellation where supported. |
 
 SQLite is an on-device database. These source files describe how it works; actual saved places and cached weather are created on the phone and are not repository assets.
 
