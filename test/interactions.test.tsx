@@ -6,6 +6,8 @@ import { LocationSearch } from "@/components/LocationSearch";
 import PlaceEditor from "@/app/place-edit";
 import { useOutlook } from "@/features/outlooks/useOutlook";
 import { usePlaces } from "@/features/places/PlacesProvider";
+import { useLocationSearch } from "@/features/search/SearchProvider";
+import type { SearchResult } from "@/features/search/types";
 import { normalizeOutlook } from "@/features/outlooks/normalize";
 import { assessPoint } from "@/features/outlooks/validity";
 import { allCategories } from "./fixtures/synthetic";
@@ -19,6 +21,7 @@ jest.mock("expo-router", () => ({
 }));
 jest.mock("@/features/outlooks/useOutlook", () => ({ useOutlook: jest.fn() }));
 jest.mock("@/features/places/PlacesProvider", () => ({ usePlaces: jest.fn() }));
+jest.mock("@/features/search/SearchProvider", () => ({ useLocationSearch: jest.fn() }));
 const snapshot = normalizeOutlook(allCategories, 1, FIXTURE_TIME);
 const state = {
   snapshot,
@@ -62,6 +65,7 @@ beforeEach(() => {
       clear: jest.fn(),
     });
   jest.mocked(usePlaces).mockReturnValue(placesValue());
+  jest.mocked(useLocationSearch).mockReturnValue({ search: jest.fn() });
 });
 test("day controls expose selection and do not mutate point selection", () => {
   const view = render(<ForecastDaySelector />);
@@ -81,19 +85,14 @@ test("selected map point has textual category and a save action", () => {
 test("location search exposes validation, no-results, and selection behavior", async () => {
   const places = placesValue();
   jest.mocked(usePlaces).mockReturnValue(places);
-  const transport = jest.fn(async () =>
-    ({
-      ok: true,
-      status: 200,
-      text: async () => "[]",
-    }) as Response,
-  );
-  const view = render(<LocationSearch transport={transport} />);
+  const search = jest.fn(async (): Promise<SearchResult[]> => []);
+  jest.mocked(useLocationSearch).mockReturnValue({ search });
+  const view = render(<LocationSearch />);
   fireEvent.press(view.getByRole("button", { name: "Search" }));
   await waitFor(() =>
     expect(view.getByText(/Enter at least two characters/)).toBeTruthy(),
   );
-  expect(transport).not.toHaveBeenCalled();
+  expect(search).not.toHaveBeenCalled();
 
   fireEvent.changeText(
     view.getByLabelText("U.S. city, place, or ZIP code"),
@@ -104,21 +103,9 @@ test("location search exposes validation, no-results, and selection behavior", a
     expect(view.getByText(/No locations found/)).toBeTruthy(),
   );
 
-  transport.mockImplementationOnce(async () =>
-    ({
-      ok: true,
-      status: 200,
-      text: async () =>
-        JSON.stringify([
-          {
-            place_id: 1,
-            display_name: "Norman, Cleveland County, Oklahoma, United States",
-            lon: "-97.44",
-            lat: "35.22",
-          },
-        ]),
-    }) as Response,
-  );
+  search.mockResolvedValueOnce([
+    { id: "place:4052500", label: "Norman, OK", coordinates: [-97.44, 35.22] },
+  ]);
   fireEvent.press(view.getByRole("button", { name: "Search" }));
   await waitFor(() =>
     expect(
@@ -133,6 +120,29 @@ test("location search exposes validation, no-results, and selection behavior", a
     }),
     true,
   );
+});
+test("selecting a ZIP result does not trigger a second search for its label", async () => {
+  jest.useFakeTimers();
+  const search = jest.fn(async (): Promise<SearchResult[]> => [
+    { id: "zip:01234", label: "ZIP 01234", coordinates: [-73.1, 42.2] },
+  ]);
+  jest.mocked(useLocationSearch).mockReturnValue({ search });
+  const view = render(<LocationSearch />);
+
+  fireEvent.changeText(
+    view.getByLabelText("U.S. city, place, or ZIP code"),
+    "01234",
+  );
+  fireEvent.press(view.getByRole("button", { name: "Search" }));
+  await waitFor(() =>
+    expect(view.getByRole("button", { name: /Show ZIP 01234/ })).toBeTruthy(),
+  );
+  fireEvent.press(view.getByRole("button", { name: /Show ZIP 01234/ }));
+  await jest.advanceTimersByTimeAsync(275);
+
+  expect(search).toHaveBeenCalledTimes(1);
+  expect(view.queryByText(/No locations found/)).toBeNull();
+  jest.useRealTimers();
 });
 test("expired point suppresses a current category", () => {
   const view = render(

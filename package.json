@@ -47,6 +47,8 @@
     "test": "jest",
     "test:ci": "jest --runInBand",
     "check": "npm run typecheck && npm run lint && npm run test:ci",
+    "build:location-db": "node scripts/build-location-database.mjs --download",
+    "verify:location-db": "node scripts/build-location-database.mjs --verify",
     "postinstall": "node scripts/patch-maplibre.mjs"
   },
   "private": true,

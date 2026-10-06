@@ -5,6 +5,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StorageProvider } from "@/storage/StorageProvider";
 import { OutlookProvider } from "@/features/outlooks/OutlookProvider";
 import { PlacesProvider } from "@/features/places/PlacesProvider";
+import { SearchProvider } from "@/features/search/SearchProvider";
 import { AppButton } from "@/components/AppButton";
 import { ScreenErrorBoundary } from "@/components/ScreenErrorBoundary";
 import { styles } from "@/theme/tokens";
@@ -24,8 +25,9 @@ export default function Layout() {
       <StatusBar style="dark" />
       <ScreenErrorBoundary>
         <StorageProvider>
-          <PlacesProvider>
-            <OutlookProvider>
+          <SearchProvider>
+            <PlacesProvider>
+              <OutlookProvider>
               <Stack
                 screenOptions={{
                   headerTitle: ({ children }) => (
@@ -64,8 +66,9 @@ export default function Layout() {
                   />
                 ))}
               </Stack>
-            </OutlookProvider>
-          </PlacesProvider>
+              </OutlookProvider>
+            </PlacesProvider>
+          </SearchProvider>
         </StorageProvider>
       </ScreenErrorBoundary>
     </SafeAreaProvider>

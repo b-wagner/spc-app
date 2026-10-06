@@ -1,29 +1,24 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, Text, TextInput, View } from "react-native";
 import { usePlaces } from "@/features/places/PlacesProvider";
-import {
-  searchPlaces,
-  type SearchResult,
-  type SearchTransport,
-} from "@/features/search/client";
+import { useLocationSearch } from "@/features/search/SearchProvider";
+import type { SearchResult } from "@/features/search/types";
+import { parseSearchQuery } from "@/features/search/normalize";
 import { errorCode } from "@/utils/errors";
 import { colors, styles } from "@/theme/tokens";
 import { AppButton } from "./AppButton";
-import { ExternalLink } from "./ExternalLink";
 
-/** Submit-only city/place and ZIP search with explicit, accessible result states. */
-export function LocationSearch({
-  transport,
-}: {
-  transport?: SearchTransport;
-}) {
+/** Debounced, local city and ZCTA search with explicit accessible result states. */
+export function LocationSearch() {
   const { select } = usePlaces();
+  const searchProvider = useLocationSearch();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [state, setState] = useState<
     "idle" | "loading" | "no-results" | "invalid" | "error"
   >("idle");
   const request = useRef<AbortController | null>(null);
+  const skipNextDebouncedSearch = useRef(false);
   useEffect(
     () => () => {
       request.current?.abort();
@@ -34,12 +29,19 @@ export function LocationSearch({
 
   const submit = async () => {
     request.current?.abort();
+    try {
+      parseSearchQuery(query);
+    } catch {
+      setResults([]);
+      setState("invalid");
+      return;
+    }
     const controller = new AbortController();
     request.current = controller;
     setResults([]);
     setState("loading");
     try {
-      const found = await searchPlaces(query, controller.signal, transport);
+      const found = await searchProvider.search(query, controller.signal);
       if (request.current !== controller) return;
       setResults(found);
       setState(found.length ? "idle" : "no-results");
@@ -51,6 +53,22 @@ export function LocationSearch({
     }
   };
 
+  useEffect(() => {
+    if (skipNextDebouncedSearch.current) {
+      skipNextDebouncedSearch.current = false;
+      return;
+    }
+    try {
+      parseSearchQuery(query);
+    } catch {
+      return;
+    }
+    const timer = setTimeout(() => void submit(), 275);
+    return () => clearTimeout(timer);
+  // `submit` reads the current query/provider; changes intentionally restart the debounce.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, searchProvider]);
+
   return (
     <View style={{ gap: 8 }}>
       <Text style={styles.body}>Find a location</Text>
@@ -61,8 +79,15 @@ export function LocationSearch({
           autoCorrect={false}
           enterKeyHint="search"
           onChangeText={(value) => {
+            request.current?.abort();
             setQuery(value);
-            if (state !== "loading") setState("idle");
+            setResults([]);
+            try {
+              parseSearchQuery(value);
+              if (state !== "loading") setState("idle");
+            } catch {
+              setState(value ? "invalid" : "idle");
+            }
           }}
           onSubmitEditing={() => void submit()}
           placeholder="City, place, or ZIP code"
@@ -85,7 +110,7 @@ export function LocationSearch({
       {state === "loading" && (
         <View accessibilityRole="progressbar" style={styles.row}>
           <ActivityIndicator size="small" />
-          <Text style={styles.secondary}>Searching…</Text>
+          <Text accessibilityLiveRegion="polite" style={styles.secondary}>Searching locally…</Text>
         </View>
       )}
       {state === "invalid" && (
@@ -100,7 +125,7 @@ export function LocationSearch({
       )}
       {state === "error" && (
         <Text accessibilityRole="alert" style={{ ...styles.secondary, color: colors.errorText }}>
-          Location search is unavailable. Check your connection and try again.
+          Local location search is unavailable on this device.
         </Text>
       )}
       {results.map((result) => (
@@ -109,6 +134,8 @@ export function LocationSearch({
           accessibilityRole="button"
           accessibilityLabel={`Show ${result.label} on map`}
           onPress={() => {
+            request.current?.abort();
+            skipNextDebouncedSearch.current = true;
             select(
               {
                 coordinates: result.coordinates,
@@ -132,11 +159,9 @@ export function LocationSearch({
           <Text style={styles.body}>{result.label}</Text>
         </Pressable>
       ))}
-      <Text style={styles.secondary}>Search is limited to the contiguous U.S.</Text>
-      <ExternalLink
-        label="Search data © OpenStreetMap contributors"
-        url="https://www.openstreetmap.org/copyright"
-      />
+      <Text style={styles.secondary}>
+        Offline search covers Census Places and ZCTAs in the contiguous U.S.
+      </Text>
     </View>
   );
 }
