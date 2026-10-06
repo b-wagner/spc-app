@@ -121,6 +121,29 @@ test("location search exposes validation, no-results, and selection behavior", a
     true,
   );
 });
+test("selecting a ZIP result does not trigger a second search for its label", async () => {
+  jest.useFakeTimers();
+  const search = jest.fn(async (): Promise<SearchResult[]> => [
+    { id: "zip:01234", label: "ZIP 01234", coordinates: [-73.1, 42.2] },
+  ]);
+  jest.mocked(useLocationSearch).mockReturnValue({ search });
+  const view = render(<LocationSearch />);
+
+  fireEvent.changeText(
+    view.getByLabelText("U.S. city, place, or ZIP code"),
+    "01234",
+  );
+  fireEvent.press(view.getByRole("button", { name: "Search" }));
+  await waitFor(() =>
+    expect(view.getByRole("button", { name: /Show ZIP 01234/ })).toBeTruthy(),
+  );
+  fireEvent.press(view.getByRole("button", { name: /Show ZIP 01234/ }));
+  await jest.advanceTimersByTimeAsync(275);
+
+  expect(search).toHaveBeenCalledTimes(1);
+  expect(view.queryByText(/No locations found/)).toBeNull();
+  jest.useRealTimers();
+});
 test("expired point suppresses a current category", () => {
   const view = render(
     <RiskBadge

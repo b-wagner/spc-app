@@ -18,6 +18,7 @@ export function LocationSearch() {
     "idle" | "loading" | "no-results" | "invalid" | "error"
   >("idle");
   const request = useRef<AbortController | null>(null);
+  const skipNextDebouncedSearch = useRef(false);
   useEffect(
     () => () => {
       request.current?.abort();
@@ -53,6 +54,10 @@ export function LocationSearch() {
   };
 
   useEffect(() => {
+    if (skipNextDebouncedSearch.current) {
+      skipNextDebouncedSearch.current = false;
+      return;
+    }
     try {
       parseSearchQuery(query);
     } catch {
@@ -129,6 +134,8 @@ export function LocationSearch() {
           accessibilityRole="button"
           accessibilityLabel={`Show ${result.label} on map`}
           onPress={() => {
+            request.current?.abort();
+            skipNextDebouncedSearch.current = true;
             select(
               {
                 coordinates: result.coordinates,
