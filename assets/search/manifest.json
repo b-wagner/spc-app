@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "dataVersion": "2025",
+  "censusVintage": "2025",
+  "retrievedAt": "2026-10-06T20:06:32.157Z",
+  "sources": {
+    "places": {
+      "url": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_Gaz_place_national.zip",
+      "sha256": "49644173a453469d9bd77fb7a493b027f87567e209edaf2078aac7543ac2ee29"
+    },
+    "zctas": {
+      "url": "https://www2.census.gov/geo/docs/maps-data/data/gazetteer/2025_Gazetteer/2025_Gaz_zcta_national.zip",
+      "sha256": "51516a4283bab5cd2376eec75609ddc4b363a18297e8adeeaac7b03cf7c84dbe"
+    }
+  },
+  "output": {
+    "file": "us-locations-2025.sqlite",
+    "sha256": "f755b7e51886543f72a99e37ab86726424d04cf5756ce8ba28a616029ebdca93",
+    "bytes": 5103616,
+    "rows": {
+      "places": 31540,
+      "zctas": 33300
+    }
+  },
+  "note": "ZCTAs are Census statistical areas, not a complete or authoritative USPS ZIP-code directory. ZIPs without a ZCTA intentionally have no result."
+}

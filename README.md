@@ -33,7 +33,7 @@ Use the development client to open the Metro URL. After changing the Hermes conf
 
 The app requests the full national GeoJSON layer from [NOAA's SPC outlook service](https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/SPC_wx_outlks/MapServer): layers **1, 9, 17** for Days 1, 2, 3, with `where=1=1`, explicit fields, `returnGeometry=true`, `outSR=4326`, `f=geojson`. Point lookup is on-device; saved names and selected coordinates are not sent to NOAA.
 
-The map camera is constrained to the contiguous United States with native MapLibre bounds and zoom levels 2–12. Explicit location search is submit-only (not autocomplete), limited to five locally validated results, cached in memory for 24 hours, and visibly attributed to OpenStreetMap. Local development defaults to the public [Nominatim service](https://nominatim.org/release-docs/latest/api/Search/) and applies its per-process one-request-per-second limit. Release builds deliberately disable that distributed-client default: configure `EXPO_PUBLIC_GEOCODER_URL` with an HTTPS, Nominatim-compatible proxy or provider that owns aggregate throttling, shared caching, and upstream switching. A release build rejects the public Nominatim hostname. Search terms and ordinary network metadata are disclosed to the configured search service; saved names are not.
+The map camera is constrained to the contiguous United States with native MapLibre bounds and zoom levels 2–12. City and ZIP lookup is a debounced, on-device search of a bundled Census Places and ZCTA database; it works without a connection and returns at most five results. Its exact source files, checksums, output checksum, size, and row counts are committed in [the location-data manifest](assets/search/manifest.json). Census ZCTAs are statistical areas, not a complete or authoritative USPS ZIP directory: a valid USPS ZIP without a ZCTA intentionally has no result. Search terms stay on the device. This does not change the separate OSM basemap disclosure below.
 
 The Forecast Discussion screen retrieves SPC's official plain-text `day1otlk.txt`, `day2otlk.txt`, or `day3otlk.txt` product on demand. It displays text only when the UTC issuance and validity tuple matches the map's normalized outlook snapshot. Historical fixture mode makes no live discussion request.
 
@@ -48,6 +48,7 @@ Weather snapshots and places use SQLite. Cached weather can remain available off
 ```sh
 npm run check       # TypeScript, lint, 85 domain/storage/network/UI tests
 npm run test:ci
+npm run verify:location-db  # verify bundled Census search asset and manifest
 npx expo-doctor
 EXPO_PUBLIC_DATA_MODE=fixtures npm start
 ```
@@ -55,6 +56,8 @@ EXPO_PUBLIC_DATA_MODE=fixtures npm start
 Fixture mode uses captured September 24, 2026 NOAA responses and a fixed reference clock of **2026-09-24 18:00 UTC**. Every screen identifies demo data as **NOT CURRENT WEATHER**. It uses an in-memory weather repository, a blank basemap by default, and disables live Forecast Discussion retrieval. A live failure never switches to fixtures. Stop Metro and remove the environment variable to return to live mode; no env file is required.
 
 `node scripts/check-outlook-feeds.mjs` checks the three live layer schemas. `node scripts/capture-outlook-fixtures.mjs` deliberately makes three national requests and replaces fixture files and their manifest. Run sparingly, inspect every captured response, and adjust fixture expectations/reference time intentionally; do not run as a polling job.
+
+`npm run build:location-db` downloads the pinned 2025 Census Gazetteer inputs and regenerates the versioned read-only search asset. For a reviewed/offline build, run `node scripts/build-location-database.mjs --places PATH --zctas PATH --output assets/search/us-locations-2025.sqlite`. Source archives are intentionally not committed.
 
 For local native tile diagnostics, run `node scripts/tile-diagnostics.mjs`, then start fixture Metro with `EXPO_PUBLIC_TEST_TILE_URL='http://127.0.0.1:8123/fresh/{z}/{x}/{y}.png'`. This development-only loopback override serves synthetic tiles, never proxies OSM, and logs request headers. `/fresh/` returns one-hour freshness; other prefixes return zero freshness for conditional-request checks. Restart Metro without the variable afterward.
 

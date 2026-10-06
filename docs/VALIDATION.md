@@ -1,5 +1,10 @@
 # Validation report
 
+## Offline location search
+
+- `npm run verify:location-db` validates the committed 2025 Census Places/ZCTA asset, metadata, SHA-256 manifest entry, row presence, and 20 MB size ceiling without a network request.
+- Unit coverage checks Unicode/punctuation normalization, state parsing, exact leading-zero ZIP lookup, deterministic city ranking, cancellation, coordinate filtering, and search UI result selection. Native airplane-mode UI verification remains follow-up work.
+
 ## September 30 v0.1 feedback checks
 
 - `npm run check`: passed with TypeScript, Expo lint, **8 suites / 85 tests** after the code-review hardening pass.

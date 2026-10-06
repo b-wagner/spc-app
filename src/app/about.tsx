@@ -39,11 +39,26 @@ export default function About() {
         </Text>
         <Text style={styles.secondary}>
           Map tile requests reveal the area being viewed. Selected coordinates
-          and place names are not sent to NOAA; point inspection happens on this
-          device. Search terms are sent to the configured OpenStreetMap search
-          provider only when you submit a search. No accounts, analytics, or
-          background location tracking.
+          and place names are not sent to NOAA; point inspection and location
+          search happen on this device. No accounts, analytics, or background
+          location tracking.
         </Text>
+      </View>
+      <View style={styles.card}>
+        <Text style={styles.title}>Location search data</Text>
+        <Text style={styles.body}>
+          City and ZIP lookup works offline using bundled 2025 Census Places
+          and ZIP Code Tabulation Areas (ZCTAs).
+        </Text>
+        <Text style={styles.secondary}>
+          ZCTAs are Census statistical areas, not a complete or authoritative
+          USPS ZIP directory. A valid USPS ZIP without a ZCTA may not return a
+          result.
+        </Text>
+        <ExternalLink
+          label="U.S. Census 2025 Gazetteer files"
+          url="https://www.census.gov/geographies/reference-files/time-series/geo/gazetteer-files.2025.html"
+        />
       </View>
       <View style={styles.card}>
         <Text style={styles.title}>Forecasts and maps</Text>
